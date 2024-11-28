@@ -7,8 +7,7 @@ kmer_count = 1
 file_RNA_k_mer = "../kmer_data/{}mer_output.txt".format(kmer_count)
 
 voc = np.load("../kmer_data/rna_dict.npy", allow_pickle=True).item()
-for word in voc:
-    voc[word] = voc[word].astype(np.float32)
+
 # sentence 是一个包含句子列表的 list，其中每个句子都是词汇的列表
 def getsentence():
     sentence = []
@@ -48,8 +47,9 @@ class Seq2Seq(nn.Module):
 
     def forward(self, x, seq_length, max_seq_length):
         context = self.encoder(x)
-        context = context.unsqueeze(1).repeat(1, max_seq_length, 1)
-        output = self.decoder(context, (context, torch.zeros_like(context)))
+        context = context.unsqueeze(0).repeat(max_seq_length, 1, 1).permute(1, 0, 2)
+        hidden = (context, torch.zeros_like(context))
+        output = self.decoder(x, hidden)
         return output
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
