@@ -17,70 +17,63 @@ def getsentence():
             sentence.append(line)
     return sentence
 
+sentences = getsentence() 
+
 class LSTMEncoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers):
+    def __init__(self, embedding_dim, hidden_dim):
         super(LSTMEncoder, self).__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
 
     def forward(self, x):
-        x = x.float()  # 将输入转换为 Float 类型
         _, (hn, _) = self.lstm(x)
-        return hn[-1]
+        return hn[-1]  # 返回最后一个时间步的隐藏状态作为上下文向量
 
 class LSTMDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, output_dim):
+    def __init__(self, embedding_dim, hidden_dim):
         super(LSTMDecoder, self).__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.lstm = nn.LSTM(hidden_dim, embedding_dim, batch_first=True)
+        self.fc = nn.Linear(embedding_dim, embedding_dim)  # 将输出映射回嵌入维度
 
-    def forward(self, x, hidden):
-        x = x.float()  # 将输入转换为 Float 类型
-        output, _ = self.lstm(x, hidden)
-        output = self.fc(output)
-        return output
+    def forward(self, context, seq_length, max_seq_length):
+        # 将上下文向量转换为重复的序列
+        context = context.unsqueeze(1).repeat(1, max_seq_length, 1)
+        lstm_out, _ = self.lstm(context)
+        return self.fc(lstm_out)  # 解码器的输出
 
-class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder):
-        super(Seq2Seq, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
+class LSTMAutoencoder(nn.Module):
+    def __init__(self, embedding_dim, hidden_dim):
+        super(LSTMAutoencoder, self).__init__()
+        self.encoder = LSTMEncoder(embedding_dim, hidden_dim)
+        self.decoder = LSTMDecoder(embedding_dim, hidden_dim)
 
     def forward(self, x, seq_length, max_seq_length):
         context = self.encoder(x)
-        context = context.unsqueeze(0).repeat(max_seq_length, 1, 1).permute(1, 0, 2)
-        hidden = (context, torch.zeros_like(context))
-        output = self.decoder(x, hidden)
-        return output
+        reconstructed = self.decoder(context, seq_length, max_seq_length)
+        return reconstructed
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# 假设 embedding_dim 是你的词向量的维度
+embedding_dim = len(next(iter(voc.values())))
+hidden_dim = 64  # 可以调整这个参数
+device = torch.device("cpu")
 
-# 加载数据
-sentences = getsentence()
+# 创建模型实例
+model = LSTMAutoencoder(embedding_dim, hidden_dim).to(device)
+
+# 将句子中的每个词汇替换为词向量
 sentence_embeddings = []
 for sentence in sentences:
-    numpy_array = np.array([np.array(voc[word]) for word in sentence])
-    embeddings = torch.tensor(numpy_array).float()  # 将输入转换为 Float 类型
+    numpy_array = np.array([np.array(voc[word]) for word in sentence])  
+    embeddings = torch.tensor(numpy_array).float()
     sentence_embeddings.append(embeddings)
 
 # 将所有句子的 embeddings 打包成一个批量
 padded_embeddings = pad_sequence(sentence_embeddings, batch_first=True)
 padded_embeddings = padded_embeddings.to(device)
 
-# 实例化模型
-input_dim = padded_embeddings.size(2)
-hidden_dim = 128
-num_layers = 2
-output_dim = input_dim
-
-encoder = LSTMEncoder(input_dim, hidden_dim, num_layers)
-decoder = LSTMDecoder(hidden_dim, hidden_dim, num_layers, output_dim)
-model = Seq2Seq(encoder, decoder).to(device)
-
 # 定义优化器
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 # 无监督训练过程
-model.train()
 for epoch in range(10):  # 训练多个周期
     optimizer.zero_grad()
     seq_length = (padded_embeddings != 0).sum(dim=1)  # 获取序列长度
@@ -92,6 +85,7 @@ for epoch in range(10):  # 训练多个周期
     loss.backward()  # 反向传播
     optimizer.step()  # 更新权重
     print(f"Epoch {epoch + 1}, Loss: {loss.item()}")
+
 
 # 使用模型得到句子的定长向量表示
 # context_vectors = model.encoder(padded_embeddings)  # 获取上下文向量
