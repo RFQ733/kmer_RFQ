@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.nn.utils.rnn import pad_sequence
-
-kmer_count = 1
+import os 
+import sys
+kmer_count = sys.argv[1] 
 file_RNA_k_mer = "../kmer_data/{}mer_output.txt".format(kmer_count)
 
 voc = np.load("../kmer_data/rna_dict.npy", allow_pickle=True).item()
@@ -74,7 +75,7 @@ padded_embeddings = padded_embeddings.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 # 无监督训练过程
-for epoch in range(10):  # 训练多个周期
+for epoch in range(3):  # 训练多个周期
     optimizer.zero_grad()
     seq_length = (padded_embeddings != 0).sum(dim=1)  # 获取序列长度
     max_seq_length = seq_length.max().item()  # 获取最大序列长度
@@ -95,5 +96,5 @@ context_vectors = model.encoder(padded_embeddings)  # 获取上下文向量
 import os 
 if not os.path.exists("../../drive/MyDrive/"):
     os.makedirs("../../drive/MyDrive/")
-np.save("../../drive/MyDrive/1mersentence_vector_autoencoder_without_attention.npy", context_vectors.detach().cpu().numpy())
+np.save("../../drive/MyDrive/{}mersentence_vector_autoencoder_without_attention.npy".format(kmer_count), context_vectors.detach().cpu().numpy())
 np.save("./sentence_vector_autoencoder_without_attention.npy", context_vectors.detach().cpu().numpy())
