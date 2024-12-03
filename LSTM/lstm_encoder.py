@@ -5,7 +5,10 @@ from torch.nn.utils.rnn import pad_sequence
 import os 
 import sys
 kmer_count = sys.argv[1] 
-file_RNA_k_mer = "../kmer_data/Secondary.txt".format(kmer_count)
+super_mater = sys.argv[2]
+super_mater = int(super_mater)
+
+file_RNA_k_mer = "../kmer_data/Secondary.txt"
 
 voc = np.load("../kmer_data/rnadict.npy", allow_pickle=True).item()
 
@@ -54,8 +57,8 @@ class LSTMAutoencoder(nn.Module):
 
 # 假设 embedding_dim 是你的词向量的维度
 embedding_dim = len(next(iter(voc.values())))
-hidden_dim = 64  # 可以调整这个参数
-device = torch.device("cpu")
+hidden_dim = super_mater  # 可以调整这个参数
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 创建模型实例
 model = LSTMAutoencoder(embedding_dim, hidden_dim).to(device)
@@ -96,5 +99,5 @@ context_vectors = model.encoder(padded_embeddings)  # 获取上下文向量
 import os 
 if not os.path.exists("../../drive/MyDrive/"):
     os.makedirs("../../drive/MyDrive/")
-np.save("../../drive/MyDrive/{}mersentence_vector_autoencoder_without_attention.npy".format(kmer_count), context_vectors.detach().cpu().numpy())
+np.save("../../drive/MyDrive/{}mersentence_vector_autoencoder_without_attention.npy".format(str(super_mater)), context_vectors.detach().cpu().numpy())
 np.save("./sentence_vector_autoencoder_without_attention.npy", context_vectors.detach().cpu().numpy())
