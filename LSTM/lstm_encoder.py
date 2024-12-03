@@ -5,9 +5,9 @@ from torch.nn.utils.rnn import pad_sequence
 import os 
 import sys
 kmer_count = sys.argv[1] 
-file_RNA_k_mer = "../kmer_data/{}mer_output.txt".format(kmer_count)
+file_RNA_k_mer = "../kmer_data/Secondary.txt".format(kmer_count)
 
-voc = np.load("../kmer_data/rna_dict.npy", allow_pickle=True).item()
+voc = np.load("../kmer_data/rnadict.npy", allow_pickle=True).item()
 
 # sentence 是一个包含句子列表的 list，其中每个句子都是词汇的列表
 def getsentence():
